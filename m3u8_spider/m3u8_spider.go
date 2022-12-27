@@ -631,7 +631,7 @@ var (
 
 func main() {
 	flag.StringVar(&url, "url", "", "url")
-	flag.StringVar(&name, "name", "video.ts", "video name")
+	flag.StringVar(&name, "name", "", "video name")
 	flag.StringVar(&down, "down", "", "down path")
 	flag.StringVar(&save, "save", "", "save path")
 	flag.BoolVar(&clear, "clear", true, "clear debris")
