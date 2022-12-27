@@ -10,7 +10,7 @@ def return_vaild_name(title):
 
 
 def request_dom(url):
-    res = requests.get(url, proxies={'https': '127.0.0.1:7890'})
+    res = requests.get(url, proxies={'https': 'http://127.0.0.1:7890','http': 'http://127.0.0.1:7890'})
     if res.status_code == 200:
         return res.text
 
@@ -42,7 +42,7 @@ def get_download_urls(galleries_num, page_num):
 def download_img( galleries_num, page_num, file_name):
     file_name = return_vaild_name(file_name)
 
-    file_url = f'download/{file_name}'
+    file_url = f'd:\tmp\comic\{file_name}'
 
     if not os.path.exists(file_url):
         os.mkdir(file_url)
@@ -50,7 +50,7 @@ def download_img( galleries_num, page_num, file_name):
     print(f'======开始下载{file_url}')
     for page in range(1, int(page_num) + 1):
         url = 'https://i.nhentai.net/galleries/{}/{}.jpg'.format(galleries_num, page)
-        res = requests.get(url, proxies={'https': '127.0.0.1:7890'})
+        res = requests.get(url, proxies={'https': 'http://127.0.0.1:7890','http': 'http://127.0.0.1:7890'})
         if res.status_code == 200:
             data = res.content
 
@@ -74,8 +74,7 @@ def main(url):
 
 
 if __name__ == '__main__':
-    commic_ids = [304632]
-
+    commic_ids = [2162994]
     for commic_id in commic_ids:
         url = f'https://nhentai.net/g/{commic_id}/'
         main(url)
