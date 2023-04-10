@@ -132,7 +132,7 @@
             link.href = window.URL.createObjectURL(resp.response);
             link.download = fileName;
             link.click();
-
+            link.remove();
             RequestCount.done()
         })
     }
