@@ -147,10 +147,8 @@
             }
             const dom = new DOMParser().parseFromString(resp.responseText, "text/html");
             const chapters = parseFirstPage(dom);
-
-            let temp = [chapters[0], chapters[1]]
-            downloadChapterImages(temp); // todo
-            // downloadChapterImages(chapters);
+            // chapters = [chapters[0], chapters[1]]  // debug
+            downloadChapterImages(chapters);
         })
     }
 
