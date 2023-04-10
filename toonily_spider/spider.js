@@ -12,10 +12,15 @@
 
 (function () {
     'use strict';
+
+    const Limit = 2 // n requests per second
+
     const DEFAULT_HEADERS = {
         "referer": "https://toonily.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
     }
+
+    const BUTTON_ID = "btn-read-download"
 
     let getXmlHttpRequest = () => {
         return (typeof GM !== "undefined" && GM !== null ? GM.xmlHttpRequest : GM_xmlhttpRequest);
@@ -28,7 +33,7 @@
         }
 
         const button = document.createElement("a");
-        button.id = "btn-read-download"
+        button.id = BUTTON_ID
         button.className = "c-btn c-btn_style-1";
         button.href = "javascript:;"
         button.innerHTML = "download";
@@ -37,7 +42,61 @@
         links.appendChild(button);
     }
 
+    let RequestCount = {
+        count: 1,
+        total: 0,
+        done: () => {
+            let button = document.getElementById(BUTTON_ID);
+            button.innerText = `download (${RequestCount.count}/${RequestCount.total})`;
+            RequestCount.count++;
+        },
+    }
+
+    class RequestLimit {
+        constructor(options) {
+            this.unRequsetFn = [];
+            this.limit = options.limit || 2;
+            this.requestCount = 0;
+        }
+
+        async push(fn) {
+            if (this.requestCount >= this.limit) {
+                await new Promise((resolve) => this.unRequsetFn.push(resolve));
+            }
+            return this._handlerReq(fn);
+        }
+
+        async _handlerReq(fn) {
+            this.requestCount++;
+            try {
+                return await fn();
+            } catch (err) {
+                return Promise.reject(err);
+            } finally {
+                this.requestCount--;
+                if (this.unRequsetFn.length) {
+                    this.unRequsetFn[0]();
+                    this.unRequsetFn.shift();
+                }
+            }
+        }
+    }
+
+    let requestLimit = new RequestLimit({limit: Limit});
+
     let request = (url, responseType, callback) => {
+        requestLimit.push(() => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        _request(url, responseType, callback)
+                        resolve();
+                    }, 1000)
+                });
+            }
+        );
+    }
+
+    let _request = (url, responseType, callback) => {
         getXmlHttpRequest()({
             method: "GET",
             url: url,
@@ -62,8 +121,6 @@
     let defaultRequest = (url, callback) => request(url, "text", callback)
 
     let requestImage = (url, fileName) => {
-        console.log("prepare download:", fileName, url)
-
         request(url, "blob", resp => {
             if (resp === null) {
                 console.log("request image err")
@@ -73,10 +130,16 @@
             link.href = window.URL.createObjectURL(resp.response);
             link.download = fileName;
             link.click();
+
+            RequestCount.done()
         })
     }
 
     let download = () => {
+        let button = document.getElementById(BUTTON_ID);
+        button.innerText = `downloading...`;
+        button.style.cssText += 'pointer-events: none; background-color: #0f0f0f';
+
         defaultRequest(window.location.href, resp => {
             if (resp === null) {
                 console.log("request chapters error")
@@ -85,9 +148,9 @@
             const dom = new DOMParser().parseFromString(resp.responseText, "text/html");
             const chapters = parseFirstPage(dom);
 
-            // let temp = [chapters[0], chapters[1]]
-            // downloadChapterImages(temp); // todo
-            downloadChapterImages(chapters);
+            let temp = [chapters[0], chapters[1]]
+            downloadChapterImages(temp); // todo
+            // downloadChapterImages(chapters);
         })
     }
 
@@ -113,10 +176,11 @@
     }
 
     let downloadChapterImage = (chapter) => {
-
         defaultRequest(chapter.url, resp => {
             const dom = new DOMParser().parseFromString(resp.responseText, "text/html");
             let images = parseDetailPath(dom);
+
+            RequestCount.total += images.length
 
             images.forEach(ele => {
                 requestImage(ele.url, chapter.name + "-" + ele.name)
@@ -135,7 +199,6 @@
         })
         return images
     }
-
 
     insertDownloadButton()
 })();
