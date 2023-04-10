@@ -1,8 +1,10 @@
 // ==UserScript==
 // @name         toonily spider
 // @namespace    obgnail
+// @description  toonily 简易爬虫
 // @version      0.1
 // @author       obgnail
+// @license      MIT
 // @match        https://toonily.com/webtoon/*
 // @icon         https://www.google.com/s2/favicons?domain=toonily.com
 // @grant        GM.xmlHttpRequest
@@ -137,7 +139,7 @@
 
     let download = () => {
         let button = document.getElementById(BUTTON_ID);
-        button.innerText = `downloading...`;
+        button.innerText = `searching...`;
         button.style.cssText += 'pointer-events: none; background-color: #0f0f0f';
 
         defaultRequest(window.location.href, resp => {
