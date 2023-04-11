@@ -2,7 +2,7 @@
 // @name         toonily spider
 // @namespace    obgnail
 // @description  toonily 简易爬虫
-// @version      0.1
+// @version      0.3
 // @author       obgnail
 // @license      MIT
 // @match        https://toonily.com/webtoon/*
@@ -49,8 +49,21 @@
         total: 0,
         done: () => {
             let button = document.getElementById(BUTTON_ID);
-            button.innerText = `download (${RequestCount.count}/${RequestCount.total})`;
+            button.innerText = `downloading (${RequestCount.count}/${RequestCount.total})`;
             RequestCount.count++;
+        },
+    }
+
+    let PrepareCount = {
+        count: 1,
+        total: 0,
+        init: length => {
+            PrepareCount.total = length
+        },
+        done: () => {
+            let button = document.getElementById(BUTTON_ID);
+            button.innerText = `preparing (${PrepareCount.count}/${PrepareCount.total})`;
+            PrepareCount.count++;
         },
     }
 
@@ -148,7 +161,7 @@
                 return
             }
             const dom = new DOMParser().parseFromString(resp.responseText, "text/html");
-            const chapters = parseFirstPage(dom);
+            let chapters = parseFirstPage(dom);
             // chapters = [chapters[0], chapters[1]]  // debug
             downloadChapterImages(chapters);
         })
@@ -169,9 +182,12 @@
 
     let downloadChapterImages = (chapters) => {
         if (chapters === null || chapters.length === 0) {
-            console.log("chapters is null")
+            alert("chapters is null")
             return
         }
+
+        PrepareCount.init(chapters.length)
+
         chapters.forEach(ele => downloadChapterImage(ele))
     }
 
@@ -181,6 +197,7 @@
             let images = parseDetailPath(dom);
 
             RequestCount.total += images.length
+            PrepareCount.done()
 
             images.forEach(ele => {
                 requestImage(ele.url, chapter.name + "-" + ele.name)
