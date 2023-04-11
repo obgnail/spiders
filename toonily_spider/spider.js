@@ -138,7 +138,7 @@
     let requestImage = (url, fileName) => {
         request(url, "blob", resp => {
             if (resp === null) {
-                console.log("request image err")
+                console.log("request image err", url)
                 return
             }
             const link = document.createElement('a');
@@ -146,6 +146,7 @@
             link.download = fileName;
             link.click();
             link.remove();
+
             RequestCount.done()
         })
     }
@@ -200,7 +201,7 @@
             PrepareCount.done()
 
             images.forEach(ele => {
-                requestImage(ele.url, chapter.name + "-" + ele.name)
+                requestImage(ele.url, chapter.name + "_" + ele.name)
             })
         })
     }
