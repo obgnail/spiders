@@ -2,7 +2,7 @@
 // @name         toonily spider
 // @namespace    obgnail
 // @description  toonily 简易爬虫
-// @version      0.3
+// @version      0.4
 // @author       obgnail
 // @license      MIT
 // @match        https://toonily.com/webtoon/*
