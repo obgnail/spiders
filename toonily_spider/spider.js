@@ -76,7 +76,7 @@
 
         async push(fn) {
             if (this.requestCount >= this.limit) {
-                await new Promise((resolve) => this.unRequsetFn.push(resolve));
+                await new Promise(resolve => this.unRequsetFn.push(resolve));
             }
             return this._handlerReq(fn);
         }
@@ -158,7 +158,7 @@
 
         defaultRequest(window.location.href, resp => {
             if (resp === null) {
-                console.log("request chapters error")
+                alert("request chapters error")
                 return
             }
             const dom = new DOMParser().parseFromString(resp.responseText, "text/html");
@@ -189,7 +189,7 @@
 
         PrepareCount.init(chapters.length)
 
-        chapters.forEach(ele => downloadChapterImage(ele))
+        chapters.forEach(downloadChapterImage)
     }
 
     let downloadChapterImage = (chapter) => {
