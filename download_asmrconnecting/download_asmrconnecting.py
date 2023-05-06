@@ -12,29 +12,39 @@ headers = {
 
 
 def _post(url, data, proxy='localhost:7890'):
-    _proxy = None if proxy is None else {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
-    try:
-        resp = requests.post(url=url, json=data, proxies=_proxy, headers=headers)
-    except urllib3.exceptions.MaxRetryError as e:
-        time.sleep(10)
-        resp = requests.post(url=url, json=data, proxies=_proxy, headers=headers)
-    return resp
+    _proxy = None if proxy is None else {
+        'http': f'http://{proxy}', 'https': f'http://{proxy}'}
+    i = 0
+    while i < 3:
+        try:
+            resp = requests.post(url=url, json=data, proxies=_proxy, headers=headers)
+            return resp
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError) as e:
+            print(e)
+            time.sleep(5)
+            i += 1
 
 
 def _get(url, proxy='localhost:7890'):
-    _proxy = None if proxy is None else {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
-    try:
-        resp = requests.get(url=url, proxies=_proxy, headers=headers)
-    except urllib3.exceptions.MaxRetryError as e:
-        time.sleep(10)
-        resp = requests.get(url=url, proxies=_proxy, headers=headers)
-    return resp
+    _proxy = None if proxy is None else {
+        'http': f'http://{proxy}', 'https': f'http://{proxy}'}
+    i = 0
+    while i < 3:
+        try:
+            resp = requests.get(url=url, proxies=_proxy, headers=headers)
+            return resp
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError) as e:
+            print(e)
+            time.sleep(5)
+            i += 1
+
 
 def get_page_info(path, proxy):
     print('get page:', path)
 
     url = 'https://asmrconnecting.xyz/api/fs/list'
-    _json = {"path": path, "password": "", "page": 1, "per_page": 0, "refresh": False}
+    _json = {"path": path, "password": "",
+             "page": 1, "per_page": 0, "refresh": False}
     resp = _post(url, _json, proxy=proxy)
     j = resp.json()
     if j['code'] != 200:
@@ -122,11 +132,11 @@ def is_lrc(file):
     filename = file['name'].upper()
 
     b = (
-            file['size'] <= ten_million
-            and ('LRC' in filename or 'ASS' in filename)
-            # and (not filename.endswith('.PNG') and not filename.endswith('.JPG') and not filename.endswith('.JPEG'))
-            and ('标记文件' not in filename)
-            and ('PASSWORD' not in filename)
+        file['size'] <= ten_million
+        and ('LRC' in filename or 'ASS' in filename)
+        # and (not filename.endswith('.PNG') and not filename.endswith('.JPG') and not filename.endswith('.JPEG'))
+        and ('标记文件' not in filename)
+        and ('PASSWORD' not in filename)
     )
 
     return b
@@ -286,8 +296,8 @@ def print_error_rjcode(error_files):
 def download():
     proxy = 'localhost:7890'
 
-    # rj_list = get_rjcode_from_network(proxy)
-    rj_list = get_rjcode_from_local()
+    rj_list = get_rjcode_from_network(proxy)
+    # rj_list = get_rjcode_from_local()
 
     print("********** tot:", len(rj_list))
 
@@ -295,7 +305,8 @@ def download():
 
     try:
         for idx, rj in enumerate(rj_list):
-            print('********** downloading:{} ({}/{})'.format(rj['name'], idx + 1, len(rj_list)))
+            print(
+                '********** downloading:{} ({}/{})'.format(rj['name'], idx + 1, len(rj_list)))
             if not download_rj(rj, proxy):
                 error_files.append(rj)
             else:

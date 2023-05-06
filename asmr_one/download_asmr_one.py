@@ -10,7 +10,17 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def _request(url, proxy='localhost:7890'):
-    return requests.get(url=url, proxies={'http': f'http://{proxy}', 'https': f'http://{proxy}'}, verify=False)
+    _proxy = None if proxy is None else {
+        'http': f'http://{proxy}', 'https': f'http://{proxy}'}
+    i = 0
+    while i < 3:
+        try:
+            resp = requests.get(url=url, proxies=_proxy, verify=False)
+            return resp
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError) as e:
+            print(e)
+            time.sleep(5)
+            i += 1
 
 
 def _get_rjcode_with_subtitle(page, proxy):
@@ -51,7 +61,7 @@ def get_rjcode_with_subtitle(proxy='localhost:7890'):
         else:
             page += 1
 
-        time.sleep(0.5)
+        time.sleep(1)
 
     return result
 
@@ -122,7 +132,8 @@ def zip_dir(dirpath, outFullName):
         fpath = path.replace(dirpath, '')
 
         for filename in filenames:
-            zip.write(os.path.join(path, filename), os.path.join(fpath, filename))
+            zip.write(os.path.join(path, filename),
+                      os.path.join(fpath, filename))
     zip.close()
 
 
