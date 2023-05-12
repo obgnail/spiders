@@ -3,23 +3,41 @@ import time
 import os
 import re
 import json
-
+import threading
 import urllib3
 
 headers = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
 }
 
+max_try = 5
+
+password_list = [
+    '',
+    '野兽先辈',
+    'Kathleens',
+    '转载须同意，贩卖死全家',
+    '橙澄子汉化组',
+    '风花雪月汉化组',
+    'TchiWscien_LGBK_Non_Ythcien',
+]
+
+max_size = 1024 * 1024 * 100
+
+max_handle_second = 40
+proxy = 'localhost:7890'
+
 
 def _post(url, data, proxy='localhost:7890'):
     _proxy = None if proxy is None else {
         'http': f'http://{proxy}', 'https': f'http://{proxy}'}
     i = 0
-    while i < 3:
+    while i < max_try:
         try:
-            resp = requests.post(url=url, json=data, proxies=_proxy, headers=headers)
+            resp = requests.post(url=url, json=data,
+                                 proxies=_proxy, headers=headers)
             return resp
-        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError) as e:
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError, requests.exceptions.SSLError) as e:
             print(e)
             time.sleep(5)
             i += 1
@@ -29,7 +47,7 @@ def _get(url, proxy='localhost:7890'):
     _proxy = None if proxy is None else {
         'http': f'http://{proxy}', 'https': f'http://{proxy}'}
     i = 0
-    while i < 3:
+    while i < max_try:
         try:
             resp = requests.get(url=url, proxies=_proxy, headers=headers)
             return resp
@@ -92,12 +110,32 @@ def _get_remote_rjcode(index_path, proxy):
     return result
 
 
-def _filter(local_rjcode_list, remote_rjcode_list):
+def get_filter_rj(filename='./filter_rj.txt'):
+    with open(filename, 'r') as openfile:
+        lines = openfile.readlines()
+        lines = [i.strip() for i in lines]
+    return lines
+
+
+filter_rj = get_filter_rj()
+
+
+def filter_func(name):
+    return not (name in filter_rj)
+
+
+def _filter(local_rjcode_list, remote_rjcode_list, filter_func=None):
     result = []
 
     for rjcode_range, rjs in remote_rjcode_list.items():
         for rj in rjs:
             name = rj['name'].upper()
+
+            if filter_func is not None:
+                ok = filter_func(name)
+                if not ok:
+                    continue
+
             if name not in local_rjcode_list:
                 rj['path'] = rjcode_range + "/" + rj["name"]
                 result.append(rj)
@@ -105,7 +143,7 @@ def _filter(local_rjcode_list, remote_rjcode_list):
 
 
 def record_rjcode(rj_list, filename="record_rjcode.json"):
-    data = {"data": rj_list}
+    data = {'count': len(rj_list), "data": rj_list}
     json_object = json.dumps(data, indent=4)
 
     with open(filename, "w") as outfile:
@@ -125,18 +163,15 @@ def _mkdir(dirname):
     return dir
 
 
-ten_million = 1024 * 1024 * 10
-
-
 def is_lrc(file):
     filename = file['name'].upper()
 
     b = (
-        file['size'] <= ten_million
-        and ('LRC' in filename or 'ASS' in filename)
-        # and (not filename.endswith('.PNG') and not filename.endswith('.JPG') and not filename.endswith('.JPEG'))
-        and ('标记文件' not in filename)
-        and ('PASSWORD' not in filename)
+            file['size'] <= max_size
+            and ('LRC' in filename or 'ASS' in filename)
+            # and (not filename.endswith('.PNG') and not filename.endswith('.JPG') and not filename.endswith('.JPEG'))
+            and ('标记文件' not in filename)
+            and ('PASSWORD' not in filename)
     )
 
     return b
@@ -158,6 +193,9 @@ def download_rj(rj, proxy):
     lrc_files = search_lrc_file(rj, proxy)
 
     if len(lrc_files) == 0:
+        print(f"--- abandon {rj['name']}")
+        with open('./filter_rj.txt', 'a') as openfile:
+            openfile.write(f"\n{rj['name']}")
         return False
 
     rj_dir = _mkdir(rj['name'])
@@ -186,7 +224,7 @@ def get_rjcode_from_network(proxy):
     local_rjcode_list = _get_local_rjcode(local_path)
     remote_rjcode_list = _get_remote_rjcode(index_path, proxy)
 
-    rj_list = _filter(local_rjcode_list, remote_rjcode_list)
+    rj_list = _filter(local_rjcode_list, remote_rjcode_list, filter_func)
 
     record_rjcode(rj_list)
 
@@ -199,7 +237,14 @@ def get_rjcode_from_local():
 
 def is_zip_file(filename):
     filename = filename.lower()
-    if filename.endswith('.7z') or filename.endswith('.rar') or filename.endswith('.zip'):
+    # 本来要用幻数进行判断的,偷懒了
+    if (filename.endswith('.7z')
+            or filename.endswith('.rar')
+            or filename.endswith('.zip')
+            or filename.endswith('.z_i_p_')
+            or filename.endswith('.r_a_r_')
+            or filename.endswith('.7_z_')
+    ):
         return True
     return False
 
@@ -221,17 +266,6 @@ def _unzip(zip_file, password):
     if 'Everything is Ok' in result:
         return True
     return False
-
-
-password_list = [
-    '',
-    '野兽先辈',
-    'Kathleens',
-    '转载须同意，贩卖死全家',
-    '橙澄子汉化组',
-    '风花雪月汉化组',
-    'TchiWscien_LGBK_Non_Ythcien',
-]
 
 
 def unzip(zip_file):
@@ -273,6 +307,16 @@ def decompression(rj):
     return False
 
 
+def delete_from_json_file(rj):
+    rj_list = get_rjcode_from_local()
+    for idx, _rj in enumerate(rj_list):
+        if rj['name'] == _rj['name']:
+            del rj_list[idx]
+            break
+
+    record_rjcode(rj_list)
+
+
 def rename_dir(rj_dir, rj):
     children = os.listdir(rj_dir)
     if len(children) != 1:
@@ -293,37 +337,40 @@ def print_error_rjcode(error_files):
             print(file)
 
 
-def download():
-    proxy = 'localhost:7890'
+def download(rj, proxy, error_files):
+    if not download_rj(rj, proxy):
+        error_files.append(rj)
+    else:
+        ok = decompression(rj)
+        if not ok:
+            print('--- decompression is not ok:', rj)
+        else:
+            rj_dir = os.path.join(os.getcwd(), rj['name'])
+            rename_dir(rj_dir, rj)
 
-    rj_list = get_rjcode_from_network(proxy)
-    # rj_list = get_rjcode_from_local()
+    delete_from_json_file(rj)
+
+
+def main():
+    rj_list = get_rjcode_from_local()
+    if len(rj_list) == 0:
+        rj_list = get_rjcode_from_network(proxy)
 
     print("********** tot:", len(rj_list))
 
     error_files = []
-
     try:
         for idx, rj in enumerate(rj_list):
-            print(
-                '********** downloading:{} ({}/{})'.format(rj['name'], idx + 1, len(rj_list)))
-            if not download_rj(rj, proxy):
-                error_files.append(rj)
-            else:
-                ok = decompression(rj)
-                if not ok:
-                    print('--- decompression is not ok:', rj)
-                else:
-                    rj_dir = os.path.join(os.getcwd(), rj['name'])
-                    rename_dir(rj_dir, rj)
+            print('********** downloading:{} ({}/{})'.format(rj['name'], idx + 1, len(rj_list)))
+
+            t = threading.Thread(target=download, args=(rj, proxy, error_files))
+            t.setDaemon(True)
+            t.start()
+            t.join(timeout=max_handle_second)
 
             time.sleep(1.5)
     finally:
         print_error_rjcode(error_files)
-
-
-def main():
-    download()
 
 
 if __name__ == '__main__':

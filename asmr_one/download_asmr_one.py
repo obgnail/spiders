@@ -8,6 +8,11 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+headers = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
+    'Origin': 'https://www.asmr.one',
+    'Referer': 'https://www.asmr.one/',
+}
 
 def _request(url, proxy='localhost:7890'):
     _proxy = None if proxy is None else {
@@ -15,16 +20,16 @@ def _request(url, proxy='localhost:7890'):
     i = 0
     while i < 3:
         try:
-            resp = requests.get(url=url, proxies=_proxy, verify=False)
+            resp = requests.get(url=url, proxies=_proxy, verify=False, headers=headers)
             return resp
-        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError) as e:
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ProxyError, requests.exceptions.SSLError) as e:
             print(e)
             time.sleep(5)
             i += 1
 
 
 def _get_rjcode_with_subtitle(page, proxy):
-    url = f'https://api.asmr-100.com/api/works?order=dl_count&sort=desc&page={page}&subtitle=1'
+    url = f'https://api.asmr-100.com/api/works?order=create_date&sort=desc&page={page}&subtitle=1'
     response = _request(url=url, proxy=proxy)
     result = response.json()
 
@@ -45,7 +50,10 @@ def _get_rjcode_with_subtitle(page, proxy):
     }
 
 
-def get_rjcode_with_subtitle(proxy='localhost:7890'):
+def get_rjcode_with_subtitle(proxy='localhost:7890', crawl_page=-1):
+    if crawl_page > 0:
+        print(f"--- crawl {crawl_page} page(s) only")
+
     result = []
     page = 1
     while True:
@@ -57,6 +65,8 @@ def get_rjcode_with_subtitle(proxy='localhost:7890'):
         result.extend(d['rjcode'])
 
         if max_page == page:
+            break
+        elif crawl_page > 0 and crawl_page == page:
             break
         else:
             page += 1
@@ -166,8 +176,9 @@ def filter_rjcode(ids):
 
 def main():
     proxy = 'localhost:7890'
+    crawl_page = 3
 
-    ids = get_rjcode_with_subtitle(proxy)
+    ids = get_rjcode_with_subtitle(proxy, crawl_page=crawl_page)
     ids = filter_rjcode(ids)
 
     print('--- tot:', len(ids))
